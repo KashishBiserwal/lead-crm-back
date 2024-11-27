@@ -1,0 +1,569 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+model Prospect {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+
+  name           String
+  email          String
+  phone          String
+  alternatePhone String?
+  address        String?
+  city           String?
+  state          String?
+  zip            String?
+  rating         Int?
+
+  isLeadConverted Boolean @default(false)
+
+  callStatus    CallStatus    @default(PENDING)
+  paymentStatus PaymentStatus @default(PENDING)
+
+  LeadMember LeadMember[]
+
+  nextFollowUpDate String?
+  followUps        FollowUp[]
+  dynamicFieldValues Json?
+
+  companyId String?  @db.ObjectId
+  Company   Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId])
+  @@unique([email, phone])
+}
+
+enum Status {
+  OPEN
+  CLOSED
+}
+
+model Lead {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+
+  name           String
+  email          String
+  phone          String
+  alternatePhone String?
+  address        String?
+  city           String?
+  state          String?
+  zip            String?
+  rating         Int?
+
+  vehicleDate  DateTime?
+  vehicleName  String?
+  vehicleModel String?
+
+  isLeadApproved Boolean @default(false)
+  status         Status  @default(OPEN)
+
+  callStatus    CallStatus    @default(PENDING)
+  paymentStatus PaymentStatus @default(PENDING)
+
+  LeadFeedback   LeadFeedback[]
+  LeadMember     LeadMember[]
+  Feedbacks      Feedbacks[]
+  bids           Bid[]
+  LeadTransferTo LeadTransferTo[]
+
+  isFinancedApproved Boolean @default(false)
+
+  nextFollowUpDate String?
+  followUps        FollowUp[]
+
+  companyId  String?  @db.ObjectId
+  Company    Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  department String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId])
+  @@unique([email, phone])
+}
+
+model FollowUp {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+
+  leadId String @db.ObjectId
+  lead   Lead   @relation(fields: [leadId], references: [id])
+
+  followUpById String @db.ObjectId
+  followUpBy   Member @relation(fields: [followUpById], references: [id])
+
+  nextFollowUpDate String
+  remark           String
+  customerResponse String?
+  rating           String?
+
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  Prospect   Prospect? @relation(fields: [prospectId], references: [id])
+  prospectId String?   @db.ObjectId
+}
+
+model Bid {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+
+  leadId String @db.ObjectId
+  lead   Lead   @relation(fields: [leadId], references: [id])
+
+  bidAmount Float
+  bidStatus BidStatus @default(PENDING)
+
+  deptId String?      @db.ObjectId
+  Dept   CompanyDept? @relation(fields: [deptId], references: [id])
+
+  memberId String @db.ObjectId
+  Member   Member @relation(fields: [memberId], references: [id])
+
+  description String?
+
+  isApproved Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum BidStatus {
+  PENDING
+  APPROVED
+}
+
+enum CallStatus {
+  BUSY
+  PENDING
+  SUCCESS
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+}
+
+model LeadMember {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+
+  leadId String @db.ObjectId
+  Lead   Lead   @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  Location Location[]
+
+  memberId   String    @db.ObjectId
+  Member     Member    @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  Prospect   Prospect? @relation(fields: [prospectId], references: [id])
+  prospectId String?   @db.ObjectId
+
+  @@unique([leadId, memberId])
+}
+
+model LeadTransferTo {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+
+  leadId String @db.ObjectId
+  lead   Lead   @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  leadData Json?
+
+  transferToId String @db.ObjectId
+  transferTo   Member @relation(fields: [transferToId], references: [id], name: "TransferTo")
+
+  transferById String @db.ObjectId
+  transferBy   Member @relation(fields: [transferById], references: [id], name: "TransferBy")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Location {
+  id                String  @id @default(auto()) @map("_id") @db.ObjectId
+  locations         Json[]
+  day               String
+  batteryPercentage String?
+  apiHitTime        String?
+  networkStrength   String?
+  isLocationOff     Boolean @default(true)
+
+  leadAssingeeMemberId String     @db.ObjectId
+  leadAssingeeMember   LeadMember @relation(fields: [leadAssingeeMemberId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([leadAssingeeMemberId, day])
+}
+
+model LeadFeedback {
+  id       String @id @default(auto()) @map("_id") @db.ObjectId
+  formName String
+
+  deptId String?      @db.ObjectId
+  dept   CompanyDept? @relation(fields: [deptId], references: [id])
+
+  leadId String? @db.ObjectId
+  lead   Lead?   @relation(fields: [leadId], references: [id])
+
+  memberId String? @db.ObjectId
+  member   Member? @relation(fields: [memberId], references: [id])
+
+  feedback  Feedbacks[]
+  imageUrls String[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([formName, leadId, memberId])
+}
+
+model BroadcastForm {
+  id            String        @id @default(auto()) @map("_id") @db.ObjectId
+  name          String        @unique
+  order         Int
+  subCategories SubCategory[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model SubCategory {
+  id              String        @id @default(auto()) @map("_id") @db.ObjectId
+  name            String        @unique
+  order           Int
+  broadcastFormId String        @db.ObjectId
+  broadcastForm   BroadcastForm @relation(fields: [broadcastFormId], references: [id])
+
+  options Option[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([name, broadcastFormId])
+}
+
+model Option {
+  id            String      @id @default(auto()) @map("_id") @db.ObjectId
+  name          String      @unique
+  type          FieldType
+  order         Int
+  subCategoryId String      @db.ObjectId
+  subCategory   SubCategory @relation(fields: [subCategoryId], references: [id])
+
+  values OptionValue[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model OptionValue {
+  id   String @id @default(auto()) @map("_id") @db.ObjectId
+  name String @unique
+
+  optionId String? @db.ObjectId
+  option   Option? @relation(fields: [optionId], references: [id])
+
+  values           OptionValue[]      @relation("OptionToOptionValues")
+  BroadcastMessage BroadcastMessage[]
+
+  parentValue   OptionValue? @relation("OptionToOptionValues", fields: [parentValueId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  parentValueId String?      @db.ObjectId
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([name, optionId])
+}
+
+model Feedbacks {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+
+  leadFeedbackId String?       @db.ObjectId
+  LeadFeedback   LeadFeedback? @relation(fields: [leadFeedbackId], references: [id])
+
+  leadId String? @db.ObjectId
+  lead   Lead?   @relation(fields: [leadId], references: [id])
+
+  name      String
+  value     Json?
+  fieldType String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model AdminDept {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+
+  name   String  @unique
+  imgURL String?
+
+  deptFields DeptField[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model CompanyDept {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+
+  name          String
+  deptManagerId String
+
+  companyId String  @db.ObjectId
+  Company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  companyDeptForms CompanyDeptForm[]
+  members          Member[]
+  Bid              Bid[]
+
+  LeadFeedback       LeadFeedback[]
+  CompanyDeptOptForm CompanyDeptOptForm[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId])
+  @@index([companyId, name])
+}
+
+model DeptField {
+  id    String @id @default(auto()) @map("_id") @db.ObjectId
+  name  String
+  order Int
+
+  adminDeptId String?    @db.ObjectId
+  AdminDept   AdminDept? @relation(fields: [adminDeptId], references: [id])
+
+  subDeptFields   SubDeptField[]
+  CompanyDeptForm CompanyDeptForm[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([adminDeptId])
+}
+
+model SubDeptField {
+  id        String    @id @default(auto()) @map("_id") @db.ObjectId
+  name      String
+  fieldType FieldType
+  value     Json?
+  options   Json?
+
+  imgLimit Int?
+
+  order      Int
+  isDisabled Boolean @default(false)
+  isRequired Boolean @default(false)
+
+  ddOptionId String?
+
+  deptFieldId String?    @db.ObjectId
+  DeptField   DeptField? @relation(fields: [deptFieldId], references: [id])
+
+  CompanyDeptForm   CompanyDeptForm? @relation(fields: [companyDeptFormId], references: [id])
+  companyDeptFormId String?          @db.ObjectId
+
+  CompanyDeptOptForm   CompanyDeptOptForm? @relation(fields: [companyDeptOptFormId], references: [id])
+  companyDeptOptFormId String?             @db.ObjectId
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([deptFieldId])
+}
+
+enum FieldType {
+  INPUT
+  PHONE
+  TAG
+  CURRENCY
+  IMAGE
+  DATE
+  TEXTAREA
+  RADIO
+  CHECKBOX
+  SELECT
+  DD
+  DD_IMG
+}
+
+model CompanyDeptForm {
+  id    String @id @default(auto()) @map("_id") @db.ObjectId
+  name  String
+  order Int
+
+  companyDeptId String      @db.ObjectId
+  companyDept   CompanyDept @relation(fields: [companyDeptId], references: [id])
+
+  adminDeptFieldId String?    @db.ObjectId
+  adminDeptField   DeptField? @relation(fields: [adminDeptFieldId], references: [id])
+
+  subDeptFields SubDeptField[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([companyDeptId, name])
+}
+
+model CompanyDeptOptForm {
+  id    String @id @default(auto()) @map("_id") @db.ObjectId
+  name  String
+  order Int
+
+  companyDeptId String?      @db.ObjectId
+  companyDept   CompanyDept? @relation(fields: [companyDeptId], references: [id])
+
+  companyId String  @db.ObjectId
+  company   Company @relation(fields: [companyId], references: [id])
+
+  subDeptFields SubDeptField[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([companyId, name])
+}
+
+model Plan {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+
+  name        String  @unique
+  description String
+  price       Float
+  duration    Int
+  maxUsers    Int?
+  isActive    Boolean @default(true)
+
+  rank Int
+
+  defaultAllowedDeptsIds String[]
+
+  Subscriptions Subscriptions[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Subscriptions {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+
+  companyId String  @db.ObjectId
+  Company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  planId String @db.ObjectId
+  plan   Plan   @relation(fields: [planId], references: [id])
+
+  allowedDeptsIds String[]
+
+  startDate DateTime
+  endDate   DateTime
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId])
+}
+
+model BroadcastMessage {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+
+  subCategory String
+  option      String
+  desc        String?
+  valueId     String?      @db.ObjectId
+  value       OptionValue? @relation(fields: [valueId], references: [id])
+
+  imgURL Json?
+
+  companyId String  @db.ObjectId
+  Company   Company @relation(fields: [companyId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Company {
+  id               String  @id @default(auto()) @map("_id") @db.ObjectId
+  rootId           String
+  companyManagerId String
+  name             String
+  imgURL           String?
+  email            String
+  phone            String
+
+  isSubscribed Boolean @default(false)
+
+  members       Member[]        @relation("CompanyMembers")
+  Depts         CompanyDept[]
+  Subscriptions Subscriptions[]
+  Leads         Lead[]
+
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  BroadcastMessage   BroadcastMessage[]
+  Prospect           Prospect[]
+  CompanyDeptOptForm CompanyDeptOptForm[]
+
+  @@index([rootId])
+  @@index([companyManagerId])
+  @@index([email])
+}
+
+model Role {
+  id   String @id @default(auto()) @map("_id") @db.ObjectId
+  name String
+
+  Members Member[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Member {
+  id       String  @id @default(auto()) @map("_id") @db.ObjectId
+  email    String
+  password String
+  name     String
+  imgURL   String?
+  phone    String
+
+  otp       String?
+  otpExpiry DateTime?
+  platform  String?
+
+  deptId String?      @db.ObjectId
+  Dept   CompanyDept? @relation(fields: [deptId], references: [id], onDelete: Cascade)
+
+  roleId String @db.ObjectId
+  role   Role   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  companyId String?  @db.ObjectId
+  Company   Company? @relation(fields: [companyId], references: [id], name: "CompanyMembers", onDelete: Cascade)
+
+  Bid            Bid[]
+  LeadMember     LeadMember[]
+  LeadFeedback   LeadFeedback[]
+  LeadTransferTo LeadTransferTo[] @relation("TransferTo")
+  LeadTransferBy LeadTransferTo[] @relation("TransferBy")
+  FollowUp       FollowUp[]
+
+  sessionToken String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([deptId])
+  @@index([roleId])
+  @@index([companyId])
+}
